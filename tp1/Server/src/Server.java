@@ -13,24 +13,26 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.ArrayList;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 
 public class Server {
 	private static ServerSocket serverSocket;
 	private static String serverPath = System.getProperty("user.dir") + "\\";
 
-	// Variables constantes - coordonnées du serveur
-	private static String serverAddress = "127.0.0.1";
-	private static int serverPort = 5000;
-
 	public static void main(String[] args) throws Exception {
+		// Variables constantes - coordonnées du serveur
+		String serverAddress = "127.0.0.1";
+		int serverPort = 5000;
+		int clientNumber = 0;
+
 		Scanner inputScanner = new Scanner(System.in);
 
 		// Input et validation de l'adresse IP
-		System.out.println("Enter the server's IP address:");
+		System.out.println("-- Enter the server's IP address:");
 		serverAddress = inputScanner.nextLine();
 		while (!Server.validateIpAddress(serverAddress)) {		// cas où l'adresse IP est incorrect
-			System.out.println("Wrong IP Address. Enter another one:");
+			System.out.println("-- Wrong IP Address. Try again. --");
 			serverAddress = System.console().readLine();
 		}
 
@@ -38,21 +40,19 @@ public class Server {
 		System.out.println("Enter the server's port:");
 		serverPort = inputScanner.nextInt();
 		while (!Server.validatePort(serverPort)) {		// cas où le port est incorrect
-			System.out.println("Invalid port: Should be between 5000 and 5050. Try again:");
+			System.out.println("-- Invalid port: Should be between 5000 and 5050. Try again. --");
 			serverPort = Integer.parseInt(System.console().readLine());
 		}
 		InetAddress serverIP = InetAddress.getByName(serverAddress);
 
 		// Création du socket
 		serverSocket = new ServerSocket();
-
 		serverSocket.setReuseAddress(true);
 		serverSocket.bind(new InetSocketAddress(serverIP, serverPort));
 
 		try {
-			int nClients = -1;
 			while (true) {
-				new ClientHandler(serverSocket.accept(), nClients++).start();
+				new ClientHandler(serverSocket.accept(), clientNumber++).start();
 			}
 
 		} finally {
@@ -69,7 +69,7 @@ public class Server {
 		public ClientHandler(Socket socket, int clientNumber) {
 			this.socket = socket;
 			this.clientNumber = clientNumber;
-			System.out.println("New connection with client#" + clientNumber + " at " + socket);
+			System.out.println("-- New connection with client#" + clientNumber + " at " + socket + " --");
 		}
 
 		public void run() {
@@ -77,11 +77,19 @@ public class Server {
 				DataInputStream dataInput = new DataInputStream(socket.getInputStream());
 				DataOutputStream dataOutput = new DataOutputStream(socket.getOutputStream());
 
-				dataOutput.writeUTF("Hello from server, client #" + clientNumber);
+				dataOutput.writeUTF("-- Hello from server, client #" + clientNumber + " --");
 				commandSelector(dataInput, dataOutput);
 			} catch (Exception e) {
-				System.out.println("Error handling client#" + clientNumber + ": " + e);
+				System.out.println("-- Error handling client#" + clientNumber + ": " + e + " --");
+			} finally {
+				try {
+					socket.close();
+				} catch (IOException e) {
+					System.out.println("-- Unable to close a socket. --");
+				}
+				System.out.println("-- Connection with client#" + clientNumber + " is closed --");
 			}
+			
 		}
 
 		public void commandSelector(DataInputStream dataInput, DataOutputStream dataOutput) throws Exception {
@@ -92,17 +100,21 @@ public class Server {
 				seconds = java.time.LocalTime.now().getSecond(),
 				commandInput = 0;
 			
-			String clientInput = "";
+			// Variables constantes - coordonnées du serveur
+			String serverAddress = "127.0.0.1";
+			int serverPort = 5000;
+
+			String input = "";
 			String[] clientInputs = new String[] {};
 
 			while (commandInput == 0) {
 				try {
-					clientInput = dataInput.readUTF();
-					clientInputs = clientInput.split(" ");
+					input = dataInput.readUTF();
+					clientInputs = input.split(" ");
 
 					System.out.println(
 						"[" + serverAddress + ":" + serverPort + " - " 
-							+ date + "@" + hours + ":" + minutes + ":" + seconds + "] : " + clientInput);
+							+ date + "@" + hours + ":" + minutes + ":" + seconds + "] : " + input);
 					} catch (Exception e) {
 				}
 
@@ -137,7 +149,7 @@ public class Server {
 				}
 
 				// Remise à zéro des valeurs initiales
-				clientInput = "";
+				input = "";
 				clientInputs = new String[] {};
 			}
 		}

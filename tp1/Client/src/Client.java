@@ -15,18 +15,18 @@ public class Client {
 	private static String clientPath = System.getProperty("user.dir") + "\\";
     private static Socket socket;
 
-	// Variables constantes - coordonnées du serveur
-	private static String serverAddress = "127.0.0.1";
-	private static int serverPort = 5000;
-
     public static void main(String[] args) throws Exception {
+		// Variables constantes - coordonnées du serveur
+		String serverAddress = "127.0.0.1";
+		int serverPort = 5000;
+
     	Scanner inputScanner = new Scanner(System.in);
 
 		// Input et validation de l'adresse IP
-		System.out.println("-- Enter the server's IP address:\n");
+		System.out.println("-- Enter the server's IP address:");
 		serverAddress = inputScanner.nextLine();
 		while (!Client.validateIpAddress(serverAddress)) {		// cas où l'adresse IP est incorrect
-			System.out.println("-- Wrong IP Address. Try again. --\n");
+			System.out.println("-- Wrong IP Address. Try again. --");
 	        serverAddress = System.console().readLine();
 	    }
 
@@ -53,9 +53,9 @@ public class Client {
 			dataOutput.writeUTF(command);
 			commandCenter(command, dataInput, dataOutput);
 
-			inputScanner.close();
 			TimeUnit.MILLISECONDS.sleep(100);
-
+			inputScanner.close();
+			
 			while(dataInput.available() != 0)
 			{
 				String serverComs = dataInput.readUTF();
