@@ -4,7 +4,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
+import java.io.OutputStream;
 import java.util.regex.Pattern;
 import java.net.Socket;
 import java.nio.file.Files;
@@ -16,7 +18,7 @@ public class Client {
     private static Socket socket;
 
     public static void main(String[] args) throws Exception {
-		// Variables constantes - coordonnÃ©es du serveur
+		// Variables constantes - coordonnées du serveur
 		String serverAddress = "127.0.0.1";
 		int serverPort = 5000;
 
@@ -25,7 +27,7 @@ public class Client {
 		// Input et validation de l'adresse IP
 		System.out.println("-- Enter the server's IP address:");
 		serverAddress = inputScanner.nextLine();
-		while (!Client.validateIpAddress(serverAddress)) {		// cas oÃ¹ l'adresse IP est incorrect
+		while (!Client.validateIpAddress(serverAddress)) {		// cas où l'adresse IP est incorrect
 			System.out.println("-- Wrong IP Address. Try again. --");
 	        serverAddress = System.console().readLine();
 	    }
@@ -33,7 +35,7 @@ public class Client {
 		// Input et validation du port
 	    System.out.println("-- Enter the server's port:");
 	    serverPort = inputScanner.nextInt();
-	    while (!Client.validatePort(serverPort)) {		// cas oÃ¹ le port est incorrect
+	    while (!Client.validatePort(serverPort)) {		// cas où le port est incorrect
 	        System.out.println("-- Invalid port: Should be between 5000 and 5050. Try again. --\n");
 	        serverPort = Integer.parseInt(System.console().readLine());
 	    }
@@ -41,12 +43,13 @@ public class Client {
 		socket = new Socket(serverAddress, serverPort);
 		System.out.format("-- Server is running on %s:%d%n --", serverAddress, serverPort);
 		
-		// Envoi et rÃ©ception de donnÃ©es
+		// Envoi et réception de données
 		DataInputStream dataInput = new DataInputStream(socket.getInputStream());
 		DataOutputStream dataOutput = new DataOutputStream(socket.getOutputStream());
 		System.out.println(dataInput.readUTF());
 		
 		while (true) {
+			System.out.print("$ ");
 			String command = inputScanner.nextLine();
 
 			if (command == "") continue;
@@ -54,7 +57,7 @@ public class Client {
 			commandCenter(command, dataInput, dataOutput);
 
 			TimeUnit.MILLISECONDS.sleep(100);
-			inputScanner.close();
+//			inputScanner.close();
 			
 			while(dataInput.available() != 0)
 			{
@@ -87,25 +90,54 @@ public class Client {
 	}
     
     private static void uploadFile(DataOutputStream dataOutput, String fileName) throws IOException {
+    	/*
 		File file = new File(clientPath + "\\" + fileName);
-		FileInputStream fileInput = new FileInputStream(file.toString());
+//		FileInputStream fileInput = new FileInputStream(file.toString());
+		InputStream in = new FileInputStream(fileName.toString());
+//        OutputStream out = socket.getOutputStream();
     	System.out.print(file.toString());
 
-		byte[] buffer = new byte[16*2024];
-		int fileSize = fileInput.read();
-		int read = fileInput.read(buffer);
+		byte[] buffer = new byte[16 * 1024];
+//		int fileSize = fileInput.read();
+//		int read = fileInput.read(buffer);
+		
+		int count;
 
 		// Si le fichier n'est pas un fichier
     	if(!(file.isFile())) {
 			return;
 		}
 		
-		while(read > 0 && fileSize > 0) {
-			dataOutput.write(buffer, 0, read);
-			fileSize -= read;
-		}
+//		while(read > 0 && fileSize > 0) {
+//			dataOutput.write(buffer, 0, read);
+//			fileSize -= read;
+//		}
 
-		fileInput.close();
+		while((count = in.read(buffer)) > 0) {
+			dataOutput.write(buffer, 0, count);
+		}
+    	
+    	
+		in.close();
+		*/
+        int bytes = 0;
+        File file = new File(clientPath + "\\" + fileName);
+        if(file.exists()){
+            try (FileInputStream fileInputStream = new FileInputStream(file)) {
+                DataOutputStream dataOut = new DataOutputStream(socket.getOutputStream());
+                dataOut.writeLong(file.length());
+                byte[] buffer = new byte[4*1024];
+                while ((bytes=fileInputStream.read(buffer))!=-1){
+                dataOut.write(buffer,0,bytes);
+                dataOut.flush();
+                }
+                System.out.println("Le fichier" + fileName + " a bien été téléversé");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("Fichier inexistant");
+        }    	
     }
     
     private static void downloadFile(DataInputStream dataInput, String fileName) throws Exception {

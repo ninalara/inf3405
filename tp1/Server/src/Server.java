@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 
 public class Server {
@@ -21,7 +22,7 @@ public class Server {
 	private static String serverPath = System.getProperty("user.dir") + "\\";
 
 	public static void main(String[] args) throws Exception {
-		// Variables constantes - coordonnÃ©es du serveur
+		// Variables constantes - coordonnées du serveur
 		String serverAddress = "127.0.0.1";
 		int serverPort = 5000;
 		int clientNumber = 0;
@@ -31,7 +32,7 @@ public class Server {
 		// Input et validation de l'adresse IP
 		System.out.println("-- Enter the server's IP address:");
 		serverAddress = inputScanner.nextLine();
-		while (!Server.validateIpAddress(serverAddress)) {		// cas oÃ¹ l'adresse IP est incorrect
+		while (!Server.validateIpAddress(serverAddress)) { // cas où l'adresse IP est incorrect
 			System.out.println("-- Wrong IP Address. Try again. --");
 			serverAddress = System.console().readLine();
 		}
@@ -39,13 +40,13 @@ public class Server {
 		// Input et validation du port
 		System.out.println("Enter the server's port:");
 		serverPort = inputScanner.nextInt();
-		while (!Server.validatePort(serverPort)) {		// cas oÃ¹ le port est incorrect
+		while (!Server.validatePort(serverPort)) { // cas où le port est incorrect
 			System.out.println("-- Invalid port: Should be between 5000 and 5050. Try again. --");
 			serverPort = Integer.parseInt(System.console().readLine());
 		}
 		InetAddress serverIP = InetAddress.getByName(serverAddress);
 
-		// CrÃ©ation du socket
+		// Création du socket
 		serverSocket = new ServerSocket();
 		serverSocket.setReuseAddress(true);
 		serverSocket.bind(new InetSocketAddress(serverIP, serverPort));
@@ -89,18 +90,16 @@ public class Server {
 				}
 				System.out.println("-- Connection with client#" + clientNumber + " is closed --");
 			}
-			
+
 		}
 
 		public void commandSelector(DataInputStream dataInput, DataOutputStream dataOutput) throws Exception {
 			// Date et temps pour l'affichage
 			LocalDate date = java.time.LocalDate.now();
-			int hours = java.time.LocalTime.now().getHour(),
-				minutes = java.time.LocalTime.now().getMinute(),
-				seconds = java.time.LocalTime.now().getSecond(),
-				commandInput = 0;
-			
-			// Variables constantes - coordonnÃ©es du serveur
+			int hours = java.time.LocalTime.now().getHour(), minutes = java.time.LocalTime.now().getMinute(),
+					seconds = java.time.LocalTime.now().getSecond(), commandInput = 0;
+
+			// Variables constantes - coordonnées du serveur
 			String serverAddress = "127.0.0.1";
 			int serverPort = 5000;
 
@@ -112,17 +111,16 @@ public class Server {
 					input = dataInput.readUTF();
 					clientInputs = input.split(" ");
 
-					System.out.println(
-						"[" + serverAddress + ":" + serverPort + " - " 
-							+ date + "@" + hours + ":" + minutes + ":" + seconds + "] : " + input);
-					} catch (Exception e) {
+					System.out.println("[" + serverAddress + ":" + serverPort + " - " + date + "@" + hours + ":"
+							+ minutes + ":" + seconds + "] : " + input);
+				} catch (Exception e) {
 				}
 
-				// Si l'usager n'a rien Ã©crit
+				// Si l'usager n'a rien écrit
 				if (clientInputs.length == 0)
 					continue;
 
-				// Les diffÃ©rentes commandes que l'usager peut Ã©crire
+				// Les différentes commandes que l'usager peut écrire
 				switch (clientInputs[0]) {
 				case "cd":
 					changeDirectory(dataOutput, clientInputs);
@@ -144,11 +142,11 @@ public class Server {
 					System.exit(0);
 					break;
 				default:
-				dataOutput.writeUTF("Command not found, please try again.\n");
+					dataOutput.writeUTF("Command not found, please try again.\n");
 					break;
 				}
 
-				// Remise Ã  zÃ©ro des valeurs initiales
+				// Remise à zéro des valeurs initiales
 				input = "";
 				clientInputs = new String[] {};
 			}
@@ -160,7 +158,7 @@ public class Server {
 				return;
 			}
 
-			// Si le client veut revenir au rÃ©pertoire prÃ©cÃ©dent
+			// Si le client veut revenir au répertoire précédent
 			if (clientInputs[1].equals("..")) {
 				String[] splitPath = path.split("\\\\");
 				String newPath = "";
@@ -187,7 +185,7 @@ public class Server {
 			File currentFolder = new File(path);
 			List<String> listOfDirectories = new ArrayList<String>();
 			File[] listOfFiles = currentFolder.listFiles();
-			
+
 			for (int i = 0; i < listOfFiles.length; i++) {
 				if (isDirectory && listOfFiles[i].isDirectory()) {
 					listOfDirectories.add(listOfFiles[i].getName());
@@ -198,7 +196,7 @@ public class Server {
 				}
 			}
 			return listOfDirectories;
-		}		
+		}
 
 		public void createNewDirectory(DataOutputStream dataOutput, String[] clientInputs) throws Exception {
 			if (clientInputs.length == 1) {
@@ -208,7 +206,7 @@ public class Server {
 
 			File fileDirectory = new File(path + clientInputs[1]);
 			boolean directoryCreated = fileDirectory.mkdir();
-			
+
 			if (directoryCreated) {
 				dataOutput.writeUTF("-- Directory created! --\n");
 			} else {
@@ -217,20 +215,36 @@ public class Server {
 		}
 
 		public void uploadFile(String[] clientInputs) throws Exception {
-			ObjectInputStream objectInput = new ObjectInputStream(socket.getInputStream());
-			FileOutputStream fileOutput = new FileOutputStream(path + clientInputs[1]);
-
-			byte[] buffer = new byte[4096];
-			long fileSize = objectInput.readLong();
-			int read = objectInput.read(buffer);
-
-			while (read > 0 && fileSize > 0) {
-				fileOutput.write(buffer, 0, read);
-				fileSize -= read;
+			/*
+			 * // ObjectInputStream objectInput = new
+			 * ObjectInputStream(socket.getInputStream()); InputStream objectInput =
+			 * socket.getInputStream(); System.out.println(clientInputs[1]);
+			 * FileOutputStream fileOutput = new FileOutputStream(path + clientInputs[1]);
+			 * 
+			 * int count;
+			 * 
+			 * byte[] buffer = new byte[16 * 1024]; // long fileSize = objectInput.read();
+			 * // int read = objectInput.read(buffer);
+			 * 
+			 * // while (read > 0 && fileSize > 0) { // fileOutput.write(buffer, 0, read);
+			 * // fileSize -= read; // } while((count = objectInput.read(buffer)) > 0) {
+			 * fileOutput.write(buffer, 0, count); }
+			 * 
+			 * objectInput.close(); fileOutput.close();
+			 */
+			int bytes = 0;
+			try (FileOutputStream fileOutputStream = new FileOutputStream(path + clientInputs[1])) {
+				DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
+				long size = dataInputStream.readLong(); // read file size
+				byte[] buffer = new byte[41024];
+				while (size > 0
+						&& (bytes = dataInputStream.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
+					fileOutputStream.write(buffer, 0, bytes);
+					size -= bytes; // read up to file size
+				}
+			} catch (IOException e) {
+				System.out.println(e.toString());
 			}
-
-			objectInput.close();
-			fileOutput.close();
 		}
 
 		private void downloadFile(DataOutputStream dataOutput, String[] clientInputs) throws Exception {
@@ -241,8 +255,8 @@ public class Server {
 			if (clientInputs.length == 1) {
 				dataOutput.writeUTF("-- Please enter a file name --\n");
 				return;
-			} 
-			
+			}
+
 			if (!(file.isFile())) {
 				dataOutput.writeUTF("-- " + fileName + " does not exist! --\n");
 				return;
@@ -259,7 +273,8 @@ public class Server {
 	}
 
 	// https://stackoverflow.com/Questions/5667371/validate-ipv4-address-in-java
-	private static final Pattern PATTERN = Pattern.compile("^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
+	private static final Pattern PATTERN = Pattern
+			.compile("^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
 
 	public static boolean validatePort(final int port) {
 		return port >= 5000 && port <= 5500;
