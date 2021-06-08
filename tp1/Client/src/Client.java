@@ -1,13 +1,15 @@
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.util.regex.Pattern;
+import java.io.OutputStream;
 import java.net.Socket;
-import java.nio.file.Files;
+import java.util.regex.Pattern;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 
@@ -23,9 +25,10 @@ public class Client {
     	Scanner inputScanner = new Scanner(System.in);
 
 		// Input et validation de l'adresse IP
+		System.out.println("-- Client side --");    	
 		System.out.println("-- Enter the server's IP address:");
 		serverAddress = inputScanner.nextLine();
-		while (!Client.validateIpAddress(serverAddress)) {		// cas où l'adresse IP est incorrect
+		while (!Client.validateIpAddress(serverAddress)) {
 			System.out.println("-- Wrong IP Address. Try again. --");
 	        serverAddress = System.console().readLine();
 	    }
@@ -33,13 +36,13 @@ public class Client {
 		// Input et validation du port
 	    System.out.println("-- Enter the server's port:");
 	    serverPort = inputScanner.nextInt();
-	    while (!Client.validatePort(serverPort)) {		// cas où le port est incorrect
+	    while (!Client.validatePort(serverPort)) {
 	        System.out.println("-- Invalid port: Should be between 5000 and 5050. Try again. --\n");
 	        serverPort = Integer.parseInt(System.console().readLine());
 	    }
 		
 		socket = new Socket(serverAddress, serverPort);
-		System.out.format("-- Server is running on %s:%d%n --", serverAddress, serverPort);
+		System.out.format("> Server is running on %s:%d%n", serverAddress, serverPort);
 		
 		// Envoi et réception de données
 		DataInputStream dataInput = new DataInputStream(socket.getInputStream());
@@ -47,14 +50,14 @@ public class Client {
 		System.out.println(dataInput.readUTF());
 		
 		while (true) {
+			System.out.print("$ ");
 			String command = inputScanner.nextLine();
 
 			if (command == "") continue;
 			dataOutput.writeUTF(command);
-			commandCenter(command, dataInput, dataOutput);
+			commandCenter(command, dataInput);
 
 			TimeUnit.MILLISECONDS.sleep(100);
-			inputScanner.close();
 			
 			while(dataInput.available() != 0)
 			{
@@ -65,75 +68,81 @@ public class Client {
 		}
     }
     
-	public static void commandCenter(String command, DataInputStream dataInput, DataOutputStream dataOutput) throws Exception {
+	public static void commandCenter(String command, DataInputStream dataInput) throws Exception {
 		String[] clientInputs = new String[] {};
-
-		try { clientInputs = command.split(" "); } catch(Exception e) {}
-		if (clientInputs.length == 0) return;
-			
-		switch(clientInputs[0]) {
+		clientInputs = command.split(" ");
+		
+		if(clientInputs.length != 0) {
+			switch(clientInputs[0]) {
 			case "upload":
-				uploadFile(dataOutput, clientInputs[1]);
+				uploadFile(clientInputs[1]);
 				break;
 			case "download":
-				downloadFile(dataInput, clientInputs[1]);
+				downloadFile(clientInputs[1]);
 				break;
 			case "exit":
 				System.exit(0);
 				break;
 			default:
 				break;
-		}
+			}			
+		} else return;
+
 	}
     
-    private static void uploadFile(DataOutputStream dataOutput, String fileName) throws IOException {
-		File file = new File(clientPath + "\\" + fileName);
-		FileInputStream fileInput = new FileInputStream(file.toString());
-    	System.out.print(file.toString());
-
-		byte[] buffer = new byte[16*2024];
-		int fileSize = fileInput.read();
-		int read = fileInput.read(buffer);
-
-		// Si le fichier n'est pas un fichier
-    	if(!(file.isFile())) {
-			return;
+	// https://stackoverflow.com/questions/9520911/java-sending-and-receiving-file-byte-over-sockets
+    private static void uploadFile(String fileName) throws IOException {
+    	File file = new File(clientPath + "\\" + fileName);
+		FileInputStream in = null;
+		OutputStream out = socket.getOutputStream();
+		byte[] bytes = new byte[(int) file.length()];
+		int count;
+		
+		try {
+			in = new FileInputStream(file);
+		} catch (FileNotFoundException e) {
+			System.out.println("-- Error: file not found. Try again. --");
 		}
 		
-		while(read > 0 && fileSize > 0) {
-			dataOutput.write(buffer, 0, read);
-			fileSize -= read;
+		while((count = in.read(bytes)) > 0) {
+			out.write(bytes, 0, count);
 		}
-
-		fileInput.close();
+		
+		in.close();
+		out.close();
     }
     
-    private static void downloadFile(DataInputStream dataInput, String fileName) throws Exception {
-		ObjectInputStream objectOutput = new ObjectInputStream(socket.getInputStream());
-		FileOutputStream fileOutput = new FileOutputStream(clientPath + "\\" + fileName);		
-
-		if(dataInput.readBoolean()) {
-			System.out.print(objectOutput.available());
-			byte [] buffer = (byte[]) objectOutput.readObject();
-			File downloadedFile = new File(clientPath + "\\" + fileName);
-			Files.write(downloadedFile.toPath(), buffer);
-			System.out.print(objectOutput.readObject());
-		} else {
-			System.out.print("An error occured when downloading the file.");
-		}
-
-		objectOutput.close();
-		fileOutput.close();
+	// https://stackoverflow.com/questions/4687615/how-to-achieve-transfer-file-between-client-and-server-using-java-socket
+    private static void downloadFile(String fileName) throws Exception {
+    	byte[] bytesArray = new byte[1];
+    	ByteArrayOutputStream bout = new ByteArrayOutputStream();
+		FileOutputStream fout = null;
+		BufferedOutputStream buffout = null;
+		
+		try {
+			fout = new FileOutputStream(fileName);
+			buffout = new BufferedOutputStream(fout);
+			
+			bout.write(bytesArray);
+    		buffout.write(bout.toByteArray());
+    		
+    		System.out.println("-- File successfully downloaded! --");
+    		buffout.flush();
+    		buffout.close();
+    		fout.flush();
+    		fout.close();
+		} catch(IOException e) {
+			System.out.println("-- Error: an error occured. Please try 12again. --");
+    	}
     }
 	
-	// https://stackoverflow.com/Questions/5667371/validate-ipv4-address-in-java
-	private static final Pattern PATTERN = Pattern.compile("^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
-    
-	public static boolean validateIpAddress(final String ipAdress) {
-		return PATTERN.matcher(ipAdress).matches();
-	}
-
 	public static boolean validatePort(final int port) {
-		return port >= 5000 && port <= 5500;
+		return port >= 5000 && port <= 5050;
+	}
+    
+	// https://stackoverflow.com/Questions/5667371/validate-ipv4-address-in-java
+	public static boolean validateIpAddress(final String ipAdress) {
+		Pattern PATTERN = Pattern.compile("^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
+		return PATTERN.matcher(ipAdress).matches();
 	}
 }

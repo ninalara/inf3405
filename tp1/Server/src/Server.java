@@ -1,20 +1,22 @@
 import java.io.DataOutputStream;
 import java.io.DataInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.time.LocalDate;
 import java.util.Scanner;
 import java.util.regex.Pattern;
-import java.io.File;
-import java.io.ObjectOutputStream;
-import java.nio.file.Files;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.ArrayList;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
+
 
 public class Server {
 	private static ServerSocket serverSocket;
@@ -29,9 +31,10 @@ public class Server {
 		Scanner inputScanner = new Scanner(System.in);
 
 		// Input et validation de l'adresse IP
+		System.out.println("-- Server side --");
 		System.out.println("-- Enter the server's IP address:");
 		serverAddress = inputScanner.nextLine();
-		while (!Server.validateIpAddress(serverAddress)) {		// cas où l'adresse IP est incorrect
+		while (!Server.validateIpAddress(serverAddress)) {
 			System.out.println("-- Wrong IP Address. Try again. --");
 			serverAddress = System.console().readLine();
 		}
@@ -39,7 +42,7 @@ public class Server {
 		// Input et validation du port
 		System.out.println("Enter the server's port:");
 		serverPort = inputScanner.nextInt();
-		while (!Server.validatePort(serverPort)) {		// cas où le port est incorrect
+		while (!Server.validatePort(serverPort)) {
 			System.out.println("-- Invalid port: Should be between 5000 and 5050. Try again. --");
 			serverPort = Integer.parseInt(System.console().readLine());
 		}
@@ -63,7 +66,7 @@ public class Server {
 
 	private static class ClientHandler extends Thread {
 		private Socket socket;
-		private int clientNumber;
+		private int clientNumber = 1;
 		private String path = new String(serverPath);
 
 		public ClientHandler(Socket socket, int clientNumber) {
@@ -79,6 +82,7 @@ public class Server {
 
 				dataOutput.writeUTF("-- Hello from server, client #" + clientNumber + " --");
 				commandSelector(dataInput, dataOutput);
+				clientNumber++;
 			} catch (Exception e) {
 				System.out.println("-- Error handling client#" + clientNumber + ": " + e + " --");
 			} finally {
@@ -112,11 +116,8 @@ public class Server {
 					input = dataInput.readUTF();
 					clientInputs = input.split(" ");
 
-					System.out.println(
-						"[" + serverAddress + ":" + serverPort + " - " 
-							+ date + "@" + hours + ":" + minutes + ":" + seconds + "] : " + input);
-					} catch (Exception e) {
-				}
+					System.out.println("[" + serverAddress + ":" + serverPort + " - " + date + "@" + hours + ":" + minutes + ":" + seconds + "] : " + input);
+					} catch (Exception e) {}
 
 				// Si l'usager n'a rien écrit
 				if (clientInputs.length == 0)
@@ -129,13 +130,12 @@ public class Server {
 					break;
 				case "ls":
 					listFilesAndDirectories(dataOutput, false);
-					dataOutput.writeUTF("\n");
 					break;
 				case "mkdir":
 					createNewDirectory(dataOutput, clientInputs);
 					break;
 				case "upload":
-					uploadFile(clientInputs);
+					uploadFile(dataOutput, clientInputs);
 					break;
 				case "download":
 					downloadFile(dataOutput, clientInputs);
@@ -144,7 +144,7 @@ public class Server {
 					System.exit(0);
 					break;
 				default:
-				dataOutput.writeUTF("Command not found, please try again.\n");
+					dataOutput.writeUTF("Command not found, please try again.\n");
 					break;
 				}
 
@@ -154,47 +154,43 @@ public class Server {
 			}
 		}
 
-		public void changeDirectory(DataOutputStream out, String[] clientInputs) throws Exception {
+		public void changeDirectory(DataOutputStream dataOutput, String[] clientInputs) throws Exception {
 			if (clientInputs.length == 1) {
-				out.writeUTF("-- Please enter a directory name\n");
+				dataOutput.writeUTF("-- Please enter a directory name: \n");
 				return;
 			}
 
-			// Si le client veut revenir au répertoire précédent
 			if (clientInputs[1].equals("..")) {
 				String[] splitPath = path.split("\\\\");
 				String newPath = "";
-				// create a new path with all the split elements except for the last one
+
 				for (int i = 0; i < splitPath.length - 1; i++) {
 					newPath += splitPath[i] + "\\";
 				}
+				
 				path = newPath;
 				System.out.println("HEAD on " + splitPath[splitPath.length - 2]);
-			} else if (!listFilesAndDirectories(out, true).contains(clientInputs[1])) {
-				// error message if the directory is not found
-				out.writeUTF("No directory with that name was found\n");
+				
+			} else if (!listFilesAndDirectories(dataOutput, true).contains(clientInputs[1])) {
+				dataOutput.writeUTF("No directory with that name was found\n");
 				return;
 			} else {
-				// sets the new path if there is no problem
 				path += clientInputs[1] + "\\";
-				System.out.println("HEAD on " + clientInputs[1]);
 			}
-			out.writeUTF("The current directory is now " + path);
+			dataOutput.writeUTF("New current directory: " + path);
 		}
 
-		// https://stackoverflow.com/questions/5694385/getting-the-filenames-of-all-files-in-a-folder#:~:text=Create%20a%20File%20object%2C%20passing,method%20to%20get%20the%20filename.
+		// https://stackoverflow.com/questions/5694385/getting-the-filenames-of-all-files-in-a-folder
 		public List<String> listFilesAndDirectories(DataOutputStream dataOutput, boolean isDirectory) throws Exception {
 			File currentFolder = new File(path);
+			File[] listOfCurrentFiles = currentFolder.listFiles();
 			List<String> listOfDirectories = new ArrayList<String>();
-			File[] listOfFiles = currentFolder.listFiles();
 			
-			for (int i = 0; i < listOfFiles.length; i++) {
-				if (isDirectory && listOfFiles[i].isDirectory()) {
-					listOfDirectories.add(listOfFiles[i].getName());
-				} else if (listOfFiles[i].isDirectory()) {
-					dataOutput.writeUTF(listOfFiles[i].getName());
-				} else if (listOfFiles[i].isFile()) {
-					dataOutput.writeUTF(listOfFiles[i].getName());
+			for (int i = 0; i < listOfCurrentFiles.length; i++) {
+				if (isDirectory && listOfCurrentFiles[i].isDirectory()) {
+					listOfDirectories.add(listOfCurrentFiles[i].getName());
+				} else {
+					dataOutput.writeUTF(listOfCurrentFiles[i].getName());
 				}
 			}
 			return listOfDirectories;
@@ -210,62 +206,77 @@ public class Server {
 			boolean directoryCreated = fileDirectory.mkdir();
 			
 			if (directoryCreated) {
-				dataOutput.writeUTF("-- Directory created! --\n");
+				dataOutput.writeUTF("-- Directory " + clientInputs[1] + " is created! --\n");
 			} else {
-				dataOutput.writeUTF("-- An Error has occurred: no directory was created. --\n");
+				dataOutput.writeUTF("-- Error: no directory was created. Try again. --\n");
 			}
 		}
 
-		public void uploadFile(String[] clientInputs) throws Exception {
-			ObjectInputStream objectInput = new ObjectInputStream(socket.getInputStream());
-			FileOutputStream fileOutput = new FileOutputStream(path + clientInputs[1]);
-
-			byte[] buffer = new byte[4096];
-			long fileSize = objectInput.readLong();
-			int read = objectInput.read(buffer);
-
-			while (read > 0 && fileSize > 0) {
-				fileOutput.write(buffer, 0, read);
-				fileSize -= read;
-			}
-
-			objectInput.close();
-			fileOutput.close();
-		}
-
-		private void downloadFile(DataOutputStream dataOutput, String[] clientInputs) throws Exception {
-			String fileName = clientInputs[1];
-			String filePath = path + fileName;
-			File file = new File(filePath);
-
-			if (clientInputs.length == 1) {
-				dataOutput.writeUTF("-- Please enter a file name --\n");
-				return;
-			} 
+		// https://stackoverflow.com/questions/9520911/java-sending-and-receiving-file-byte-over-sockets
+		public void uploadFile(DataOutputStream dataOutput, String[] clientInputs) throws Exception {
+			InputStream in = socket.getInputStream();
+			FileOutputStream out = null;
+			byte[] bytes = new byte[1024];
+			int count;
 			
-			if (!(file.isFile())) {
-				dataOutput.writeUTF("-- " + fileName + " does not exist! --\n");
+			if (clientInputs.length == 1) {
+				dataOutput.writeUTF("-- Please enter a valid file name --\n");
+				in.close();
 				return;
-			} else {
-				byte[] buff = Files.readAllBytes(file.toPath());
-				ObjectOutputStream output = new ObjectOutputStream(socket.getOutputStream());
-
-				System.out.print(buff.length);
-
-				output.writeObject(buff);
-				output.close();
 			}
+			
+			try {
+				out = new FileOutputStream(path + clientInputs[1]);
+			} catch (IOException e) {
+				dataOutput.writeUTF("-- Error: file not found. Try again. --\n");
+			}
+
+			while((count = in.read(bytes)) >= 0) {
+				out.write(bytes, 0, count);
+			}
+			
+			dataOutput.writeUTF("-- File " + clientInputs[1] + " uploaded successfully! --");
+			
+			in.close();
+			out.close();
+		}
+
+		// https://stackoverflow.com/questions/4687615/how-to-achieve-transfer-file-between-client-and-server-using-java-socket
+		private void downloadFile(DataOutputStream dataOutput, String[] clientInputs) throws Exception {
+			File file = new File(path + clientInputs[1]);
+			FileInputStream in = null;
+			BufferedInputStream buffin = new BufferedInputStream(in);
+			byte[] bytes = new byte[(int) file.length()];
+			
+			if (clientInputs.length == 1) {
+				dataOutput.writeUTF("-- Please enter a valid file name --\n");
+				return;
+			}
+			
+			try {
+				in = new FileInputStream(file);
+			} catch (FileNotFoundException e) {
+				dataOutput.writeUTF("-- Error: file not found. Try again. --");
+			}
+			
+			try {
+				buffin.read(bytes, 0, bytes.length);
+				buffin.close();
+				return;
+			} catch (IOException e) {
+				dataOutput.writeUTF("-- An error occured. Please try again. --");
+			}
+			
 		}
 	}
-
-	// https://stackoverflow.com/Questions/5667371/validate-ipv4-address-in-java
-	private static final Pattern PATTERN = Pattern.compile("^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
 
 	public static boolean validatePort(final int port) {
-		return port >= 5000 && port <= 5500;
+		return port >= 5000 && port <= 5050;
 	}
-
+	
+	// https://stackoverflow.com/Questions/5667371/validate-ipv4-address-in-java
 	public static boolean validateIpAddress(final String ipAdress) {
+		Pattern PATTERN = Pattern.compile("^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
 		return PATTERN.matcher(ipAdress).matches();
 	}
 }
