@@ -18,7 +18,7 @@ public class Client {
     private static Socket socket;
 
     public static void main(String[] args) throws Exception {
-		// Variables constantes - coordonnées du serveur
+		// Variables constantes - coordonn�es du serveur
 		String serverAddress = "127.0.0.1";
 		int serverPort = 5000;
 
@@ -44,7 +44,7 @@ public class Client {
 		socket = new Socket(serverAddress, serverPort);
 		System.out.format("> Server is running on %s:%d%n", serverAddress, serverPort);
 		
-		// Envoi et réception de données
+		// Envoi et r�ception de donn�es
 		DataInputStream dataInput = new DataInputStream(socket.getInputStream());
 		DataOutputStream dataOutput = new DataOutputStream(socket.getOutputStream());
 		System.out.println(dataInput.readUTF());

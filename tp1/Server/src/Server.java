@@ -17,13 +17,12 @@ import java.util.regex.Pattern;
 import java.util.List;
 import java.util.ArrayList;
 
-
 public class Server {
 	private static ServerSocket serverSocket;
 	private static String serverPath = System.getProperty("user.dir") + "\\";
 
 	public static void main(String[] args) throws Exception {
-		// Variables constantes - coordonnées du serveur
+		// Variables constantes - coordonn�es du serveur
 		String serverAddress = "127.0.0.1";
 		int serverPort = 5000;
 		int clientNumber = 0;
@@ -48,7 +47,7 @@ public class Server {
 		}
 		InetAddress serverIP = InetAddress.getByName(serverAddress);
 
-		// Création du socket
+		// Cr�ation du socket
 		serverSocket = new ServerSocket();
 		serverSocket.setReuseAddress(true);
 		serverSocket.bind(new InetSocketAddress(serverIP, serverPort));
@@ -93,18 +92,16 @@ public class Server {
 				}
 				System.out.println("-- Connection with client#" + clientNumber + " is closed --");
 			}
-			
+
 		}
 
 		public void commandSelector(DataInputStream dataInput, DataOutputStream dataOutput) throws Exception {
 			// Date et temps pour l'affichage
 			LocalDate date = java.time.LocalDate.now();
-			int hours = java.time.LocalTime.now().getHour(),
-				minutes = java.time.LocalTime.now().getMinute(),
-				seconds = java.time.LocalTime.now().getSecond(),
-				commandInput = 0;
-			
-			// Variables constantes - coordonnées du serveur
+			int hours = java.time.LocalTime.now().getHour(), minutes = java.time.LocalTime.now().getMinute(),
+					seconds = java.time.LocalTime.now().getSecond(), commandInput = 0;
+
+			// Variables constantes - coordonn�es du serveur
 			String serverAddress = "127.0.0.1";
 			int serverPort = 5000;
 
@@ -119,11 +116,11 @@ public class Server {
 					System.out.println("[" + serverAddress + ":" + serverPort + " - " + date + "@" + hours + ":" + minutes + ":" + seconds + "] : " + input);
 					} catch (Exception e) {}
 
-				// Si l'usager n'a rien écrit
+				// Si l'usager n'a rien �crit
 				if (clientInputs.length == 0)
 					continue;
 
-				// Les différentes commandes que l'usager peut écrire
+				// Les diff�rentes commandes que l'usager peut �crire
 				switch (clientInputs[0]) {
 				case "cd":
 					changeDirectory(dataOutput, clientInputs);
@@ -148,7 +145,7 @@ public class Server {
 					break;
 				}
 
-				// Remise à zéro des valeurs initiales
+				// Remise � z�ro des valeurs initiales
 				input = "";
 				clientInputs = new String[] {};
 			}
@@ -194,7 +191,7 @@ public class Server {
 				}
 			}
 			return listOfDirectories;
-		}		
+		}
 
 		public void createNewDirectory(DataOutputStream dataOutput, String[] clientInputs) throws Exception {
 			if (clientInputs.length == 1) {
@@ -204,7 +201,7 @@ public class Server {
 
 			File fileDirectory = new File(path + clientInputs[1]);
 			boolean directoryCreated = fileDirectory.mkdir();
-			
+
 			if (directoryCreated) {
 				dataOutput.writeUTF("-- Directory " + clientInputs[1] + " is created! --\n");
 			} else {
