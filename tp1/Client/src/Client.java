@@ -132,7 +132,7 @@ public class Client {
     		fout.flush();
     		fout.close();
 		} catch(IOException e) {
-			System.out.println("-- Error: an error occured. Please try 12again. --");
+			System.out.println("-- Error: an error occured. Please try again. --");
     	}
     }
 	
